@@ -1,0 +1,258 @@
+<html>
+    <meta charset="utf-8">
+    <style>
+ 
+            .node rect {
+              cursor: move;
+              fill-opacity: .9;
+              shape-rendering: crispEdges;
+            }
+             
+            .node text {
+              pointer-events: none;
+              text-shadow: 0 1px 0 #fff;
+            }
+             
+            .link {
+              fill: none;
+              stroke: #000;
+              stroke-opacity: .2;
+            }
+             
+            .link:hover {
+              stroke-opacity: .5;
+            }
+            .gradient-link {
+                fill: none;
+                stroke-opacity: .5;
+                }
+             
+            </style>
+
+    <script src="//cdnjs.cloudflare.com/ajax/libs/d3/3.5.10/d3.js"></script>
+    <script src="static/lib/sankey/sankey.js"></script>
+    <script
+    src="https://code.jquery.com/jquery-3.4.1.slim.js"
+    integrity="sha256-BTlTdQO9/fascB1drekrDVkaKd9PkwBymMlHOiG+qLI="
+    crossorigin="anonymous"></script>
+    <body>
+            <h1>
+                <img src="/static/png/Hochtief-Logo.svg" height="100" width="400">
+            </h1>
+            <form>
+                Enter your time range:
+            
+            <input id="myinput" type="text" name="fname">
+            <input  type='button' onclick='UpdateStatus()' value='Refresh'>
+            </form>
+    
+            <form>
+                    Select time range:
+                    <select id="mySelect" onchange="changeFunc()">
+                      <option value="Time1">Last 7 Days</option>
+                      <option value="Time2">Last 30 Days</option>
+                      <option value="Time3">Last 2 Months</option>
+                      <option value="Time4">Last 6 Months</option>
+                    </select>
+            </form>
+            
+            <p id="chart"></p>
+    <script>
+        function changeFunc(){
+            alert('Selected')
+        }
+
+        function UpdateStatus() 
+        {
+            /*
+            
+            d3.json("/data?date="+$("#myinput").val()).then(function(data) {
+                                        console.log(data);
+                                    });
+                                    */
+        }
+            var units = "Strom Units";
+
+            var margin = {top: 0, right:10, bottom:10, left:10},
+                width   = 1600 - margin.left - margin.right,
+                height  = 700 - margin.top - margin.bottom;
+            
+                var formatNumber = d3.format(",.0f"),
+
+                format = function(d) {
+                    return formatNumber(d) + " TWh";
+                },
+
+                color = d3.scale.category20();
+
+                var svg = d3.select("#chart").append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+                var sankey = d3.sankey()
+                .nodeWidth(15)
+                .nodePadding(10)
+                .size([width, height]);
+
+                var path = sankey.link();
+
+                d3.json("/data", function(energy) {
+
+                sankey
+                    .nodes(energy.nodes)
+                    .links(energy.links)
+                    .layout(32);
+
+
+
+                function setDash(d) {
+                    var d3this = d3.select(this);
+                    var totalLength = d3this.node().getTotalLength();
+                    d3this
+                    .attr('stroke-dasharray', totalLength + ' ' + totalLength)
+                    .attr('stroke-dashoffset', totalLength)
+                }
+
+                function branchAnimate(nodeData) {
+                    var links = svg.selectAll(".gradient-link")
+                    .filter(function(gradientD) {
+                        return nodeData.sourceLinks.indexOf(gradientD) > -1
+                    });
+                    var nextLayerNodeData = [];
+                    links.each(function(d) {
+                    nextLayerNodeData.push(d.target);
+                    });
+
+                    links
+                    .style("opacity", null)
+                    .transition()
+                    .duration(400)
+                    .ease('linear')
+                    .attr('stroke-dashoffset', 0)
+                    .each("end", function() {
+                        nextLayerNodeData.forEach(function(d) {
+                        branchAnimate(d);
+                        });
+                    });
+                } //end branchAnimate
+
+                var gradientLink = svg.append("g").selectAll(".gradient-link")
+                    .data(energy.links)
+                    .enter().append("path")
+                    .attr("class", "gradient-link")
+                    .attr("d", path)
+                    .style("stroke-width", function(d) {
+                    return Math.max(1, d.dy);
+                    })
+                    .sort(function(a, b) {
+                    return b.dy - a.dy;
+                    })
+                    .each(setDash)
+                    .style('stroke', function(d) {
+                    var sourceColor = color(d.source.name.replace(/ .*/, "")).replace("#", "");
+                    var targetColor = color(d.target.name.replace(/ .*/, "")).replace("#", "");
+                    var id = 'c-' + sourceColor + '-to-' + targetColor;
+                    if (!svg.select(id)[0][0]) {
+                        //append the gradient def
+                        //append a gradient
+                        var gradient = svg.append('defs')
+                        .append('linearGradient')
+                        .attr('id', id)
+                        .attr('x1', '0%')
+                        .attr('y1', '0%')
+                        .attr('x2', '100%')
+                        .attr('y2', '0%')
+                        .attr('spreadMethod', 'pad');
+
+                        gradient.append('stop')
+                        .attr('offset', '0%')
+                        .attr('stop-color', "#" + sourceColor)
+                        .attr('stop-opacity', 1);
+
+                        gradient.append('stop')
+                        .attr('offset', '100%')
+                        .attr('stop-color', "#" + targetColor)
+                        .attr('stop-opacity', 1);
+                    }
+                    return "url(#" + id + ")";
+                    });
+
+                var link = svg.append("g").selectAll(".link")
+                    .data(energy.links)
+                    .enter().append("path")
+                    .attr("class", "link")
+                    .attr("d", path)
+                    .style("stroke-width", function(d) {
+                    return Math.max(1, d.dy);
+                    })
+                    .sort(function(a, b) {
+                    return b.dy - a.dy;
+                    });
+
+                link.append("title")
+                    .text(function(d) {
+                    return d.source.name + " → " + d.target.name + "\n" + format(d.value);
+                    });
+
+
+                var node = svg.append("g").selectAll(".node")
+                    .data(energy.nodes)
+                    .enter().append("g")
+                    .attr("class", "node")
+                    .attr("transform", function(d) {
+                    return "translate(" + d.x + "," + d.y + ")";
+                    })
+                    .on("mouseover", branchAnimate)
+                    .on("mouseout", function() {
+                    //cancel all transitions by making a new one
+                    gradientLink.transition();
+                    gradientLink
+                        .style("opacity", 0)
+                        .each(function(d) {
+                        setDash.call(this, d);
+                        });
+                    });
+
+
+                node.append("rect")
+                    .attr("height", function(d) {
+                    return d.dy;
+                    })
+                    .attr("width", sankey.nodeWidth())
+                    .style("fill", function(d) {
+                    return d.color = color(d.name.replace(/ .*/, ""));
+                    })
+                    .append("title")
+                    .text(function(d) {
+                    return d.name + "\n" + format(d.value);
+                    });
+
+                node.append("text")
+                    .attr("x", -6)
+                    .attr("y", function(d) {
+                    return d.dy / 2;
+                    })
+                    .attr("dy", ".35em")
+                    .attr("text-anchor", "end")
+                    .attr("transform", null)
+                    .text(function(d) {
+                    return d.name;
+                    })
+                    .filter(function(d) {
+                    return d.x < width / 2;
+                    })
+                    .attr("x", 6 + sankey.nodeWidth())
+                    .attr("text-anchor", "start");
+
+    });         
+             
+    
+    </script>
+
+
+        
+</body>
+
+</html>
